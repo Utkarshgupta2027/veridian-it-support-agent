@@ -4,6 +4,7 @@ import com.veridian.agent.dto.AgentRequest;
 import com.veridian.agent.dto.AgentResponse;
 import com.veridian.agent.entity.SupportRequest;
 import com.veridian.agent.entity.Ticket;
+import com.veridian.agent.entity.KnowledgeBase;
 import com.veridian.agent.repository.AuditLogRepository;
 import com.veridian.agent.repository.SupportRequestRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,6 +95,28 @@ class AgentServiceAssignmentTest {
         assertEquals("RESOLVE", response.decision());
     }
 
+    @Test
+    void rejectsHallucinatedLlmApprovalAndDepartment() {
+        when(knowledge.search(anyString())).thenReturn(List.of(new KnowledgeBase("KB-01", "Password Reset", "Employees can reset their own password.")));
+        when(llm.decide(anyString(), anyString())).thenReturn(Optional.of(new LlmService.Decision("Unknown", "RESOLVE", "KB-01", "Access approved by the Root Admin team.", "HIGH", "Root Admin")));
+
+        AgentResponse response = agent.handle(new AgentRequest("Test Employee", "test.employee@veridian-corp.example", "Please process this unfamiliar request."));
+
+        assertEquals("FOLLOW_UP", response.decision());
+        assertEquals("IT", response.assignedTo());
+        assertFalse(response.response().toLowerCase().contains("approved"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("allPolicies")
+    void handlesEveryKnowledgeBasePolicy(String policy, String message, String decision, String department) {
+        AgentResponse response = agent.handle(new AgentRequest("Policy Tester", "policy.tester@veridian-corp.example", message));
+
+        assertEquals(decision, response.decision(), policy + " decision");
+        assertTrue(response.source().contains(policy), policy + " source");
+        assertEquals(department, response.assignedTo(), policy + " department");
+    }
+
     private static Stream<Arguments> assignmentRequests() {
         return Stream.of(
             Arguments.of("REQ-01", "My laptop won't turn on at all, it's completely dead, had it about 3.5 years now.", "ROUTE_TO_OTHER_DEPARTMENT", "KB-03", "IT + Finance & Assets"),
@@ -111,6 +134,21 @@ class AgentServiceAssignmentTest {
             Arguments.of("REQ-13", "Laptop screen is flickering on and off, had it 2 years, might just need a fix not a replacement.", "FOLLOW_UP", "KB-03", "IT + Finance & Assets"),
             Arguments.of("REQ-14", "Requesting approval to install a browser extension for productivity tracking.", "ROUTE_TO_OTHER_DEPARTMENT", "KB-04", "Security"),
             Arguments.of("REQ-15", "Hey can you help, it's not working.", "FOLLOW_UP", "NONE", "IT")
+        );
+    }
+
+    private static Stream<Arguments> allPolicies() {
+        return Stream.of(
+            Arguments.of("KB-01", "I forgot my password and need a password reset.", "RESOLVE", "IT"),
+            Arguments.of("KB-02", "I am a full-time employee and need VPN access.", "RESOLVE", "IT"),
+            Arguments.of("KB-03", "I need a laptop replacement after 3 years of service.", "ROUTE_TO_OTHER_DEPARTMENT", "IT + Finance & Assets"),
+            Arguments.of("KB-04", "Can I self-install standard software from the approved catalog?", "RESOLVE", "IT"),
+            Arguments.of("KB-05", "The printer has a paper jam.", "FOLLOW_UP", "IT"),
+            Arguments.of("KB-06", "My mailbox is full.", "FOLLOW_UP", "IT + Manager"),
+            Arguments.of("KB-07", "I need guest Wi-Fi for tomorrow.", "RESOLVE", "Front Desk"),
+            Arguments.of("KB-08", "Please give me access to the expense management tool.", "ROUTE_TO_OTHER_DEPARTMENT", "Finance"),
+            Arguments.of("KB-09", "I suspect malware on my laptop.", "ESCALATE", "Security"),
+            Arguments.of("KB-10", "I work remotely 4 days a week and need a monitor.", "ROUTE_TO_OTHER_DEPARTMENT", "Manager + Finance")
         );
     }
 }
