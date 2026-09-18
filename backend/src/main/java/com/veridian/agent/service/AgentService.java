@@ -1,27 +1,31 @@
 package com.veridian.agent.service;
-import com.veridian.agent.dto.*; import com.veridian.agent.entity.*; import com.veridian.agent.repository.*; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.util.*;
+import java.util.List;
+ import java.util.Locale;
+ import java.util.Set;
+
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+
+ import com.veridian.agent.dto.AgentRequest;
+import com.veridian.agent.dto.AgentResponse;
+import com.veridian.agent.entity.KnowledgeBase;
+import com.veridian.agent.entity.SupportRequest;
+import com.veridian.agent.entity.Ticket;
+import com.veridian.agent.repository.AuditLogRepository;
+import com.veridian.agent.repository.SupportRequestRepository;
 @Service public class AgentService {
  private final SupportRequestRepository requests; private final KnowledgeService kb; private final TicketService tickets; private final AuditService audit; private final LlmService llm; private final AuditLogRepository audits;
  public AgentService(SupportRequestRepository r,KnowledgeService k,TicketService t,AuditService a,LlmService l,AuditLogRepository al){requests=r;kb=k;tickets=t;audit=a;llm=l;audits=al;}
  @Transactional public AgentResponse handle(AgentRequest in){
-  SupportRequest r=requests.save(new SupportRequest(in.employeeName(),in.employeeEmail(),in.message())); audit.log(r,"REQUEST_RECEIVED","Employee request received.");
-  String m=in.message().toLowerCase(Locale.ROOT); List<KnowledgeBase> found=kb.search(m);
-  audit.log(r,"POLICY_RETRIEVED",found.isEmpty()?"No matching supplied policy found.":found.stream().map(KnowledgeBase::getPolicyId).toList().toString());
-  Decision d=rule(m);
-  if(d==null){
-   String knowledge=found.stream().map(k->k.getPolicyId()+" | "+k.getTitle()+" | "+k.getContent()).reduce("",(a,b)->a+"\\n"+b);
-   var ld=llm.decide(in.message(),knowledge).orElse(null);
-   if(ld!=null && found.stream().anyMatch(k->k.getPolicyId().equalsIgnoreCase(ld.policyId()))) d=new Decision(ld.category(),normalize(ld.decision()),ld.policyId(),ld.response(),ld.priority(),ld.assignedTo());
-  }
-  if(d==null)d=new Decision("Unclear IT Request","FOLLOW_UP","NONE","Can you describe what is happening in more detail, including what you expected and what you see now?","MEDIUM","IT");
-  r.setCategory(d.category); r.setStatus(d.decision); requests.save(r); audit.log(r,"DECISION_MADE",d.decision+" | "+d.category+" | "+d.source);
-  Ticket t=tickets.create(r,d.decision,d.priority,d.assignedTo,d.response); audit.log(r,"TICKET_CREATED","Ticket TK-"+t.getId()+" created.");
-  if(d.decision.equals("ESCALATE"))audit.log(r,"ESCALATION_PERFORMED","Assigned to "+d.assignedTo+".");
-  if(d.decision.equals("ROUTE_TO_OTHER_DEPARTMENT"))audit.log(r,"ROUTED_TO_OTHER_DEPARTMENT","Assigned to "+d.assignedTo+".");
-  audit.log(r,"RESPONSE_GENERATED","Source shown: "+d.source);
-  List<AgentResponse.AuditItem> trail=audits.findByRequestIdOrderByTimestampAsc(r.getId()).stream().map(x->new AgentResponse.AuditItem(x.getAction(),x.getDetails(),x.getTimestamp().toString())).toList();
-  return new AgentResponse(r.getId(),d.category,d.decision,d.response,d.source,t.getId(),t.getStatus(),d.assignedTo,trail);
+    SupportRequest request=createEmployeeRequest(in); List<KnowledgeBase> knowledge=retrieveKnowledge(request); Decision decision=matchPolicy(in,knowledge); saveDecision(request,decision); Ticket ticket=createTicket(request,decision); logRouting(request,decision); return buildResponse(request,decision,ticket);
  }
+ private SupportRequest createEmployeeRequest(AgentRequest in){SupportRequest request=requests.save(new SupportRequest(in.employeeName(),in.employeeEmail(),in.message())); audit.log(request,"REQUEST_RECEIVED","Employee request received."); return request;}
+ private List<KnowledgeBase> retrieveKnowledge(SupportRequest request){List<KnowledgeBase> found=kb.search(request.getRequestText().toLowerCase(Locale.ROOT)); audit.log(request,"POLICY_RETRIEVED",found.isEmpty()?"No matching supplied policy found.":found.stream().map(item->item.getPolicyId()).toList().toString()); return found;}
+ private Decision matchPolicy(AgentRequest in,List<KnowledgeBase> found){String message=in.message().toLowerCase(Locale.ROOT); Decision decision=rule(message); if(decision==null){String knowledge=found.stream().map(k->k.getPolicyId()+" | "+k.getTitle()+" | "+k.getContent()).reduce("",(a,b)->a+"\n"+b); var llmDecision=llm.decide(in.message(),knowledge).orElse(null); if(llmDecision!=null&&found.stream().anyMatch(k->k.getPolicyId().equalsIgnoreCase(llmDecision.policyId())))decision=new Decision(llmDecision.category(),normalize(llmDecision.decision()),llmDecision.policyId(),llmDecision.response(),llmDecision.priority(),llmDecision.assignedTo());} return decision==null?new Decision("Unclear IT Request","FOLLOW_UP","NONE","Can you describe what is happening in more detail, including what you expected and what you see now?","MEDIUM","IT"):decision;}
+ private void saveDecision(SupportRequest request,Decision decision){request.setCategory(decision.category); request.setStatus(decision.decision); requests.save(request); audit.log(request,"DECISION_MADE",decision.decision+" | "+decision.category+" | "+decision.source);}
+ private Ticket createTicket(SupportRequest request,Decision decision){Ticket ticket=tickets.create(request,decision.decision,decision.priority,decision.assignedTo,decision.response); audit.log(request,"TICKET_CREATED","Ticket TK-"+ticket.getId()+" created."); return ticket;}
+ private void logRouting(SupportRequest request,Decision decision){if(decision.decision.equals("ESCALATE"))audit.log(request,"ESCALATION_PERFORMED","Assigned to "+decision.assignedTo+"."); if(decision.decision.equals("ROUTE_TO_OTHER_DEPARTMENT"))audit.log(request,"ROUTED_TO_OTHER_DEPARTMENT","Assigned to "+decision.assignedTo+"."); audit.log(request,"RESPONSE_GENERATED","Source shown: "+decision.source);}
+ private AgentResponse buildResponse(SupportRequest request,Decision decision,Ticket ticket){List<AgentResponse.AuditItem> trail=audits.findByRequestIdOrderByTimestampAsc(request.getId()).stream().map(x->new AgentResponse.AuditItem(x.getAction(),x.getDetails(),x.getTimestamp().toString())).toList(); return new AgentResponse(request.getId(),decision.category,decision.decision,decision.response,decision.source,ticket.getId(),ticket.getStatus(),decision.assignedTo,trail);}
  private Decision rule(String m){
   if(any(m,"phishing","malware","unauthorized access"))return new Decision("Security Incident","ESCALATE","KB-09","Suspected phishing, malware, or unauthorized access must be reported immediately to Security. The request has been escalated.","HIGH","Security");
   if(any(m,"account locked","locked out","password 6","password six","password lockout"))return new Decision("Account Lockout","RESOLVE","KB-01","Your account appears to be locked. Follow the password/account-unlock procedure in KB-01. A ticket has been recorded.","MEDIUM","IT");
