@@ -39,17 +39,55 @@ public class SupportRequest {
         if (createdAt == null) createdAt = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
-    public String getEmployeeName() { return employeeName; }
-    public String getEmployeeEmail() { return employeeEmail; }
-    public String getRequestText() { return requestText; }
-    public String getCategory() { return category; }
-    public String getStatus() { return status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public String getRequestCode() { return requestCode; }
-    public String getInitialAction() { return initialAction; }
-    public void setCategory(String value) { category = value; }
-    public void setStatus(String value) { status = value; }
-    public void setRequestCode(String value) { requestCode = value; }
-    public void setInitialAction(String value) { initialAction = value; }
+    public Long getId() {
+        return id;
+    }
+
+    public String getEmployeeName() {
+        return employeeName;
+    }
+
+    public String getEmployeeEmail() {
+        return employeeEmail;
+    }
+
+    public String getRequestText() {
+        return requestText;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public String getRequestCode() {
+        return requestCode;
+    }
+
+    public String getInitialAction() {
+        return initialAction;
+    }
+
+    public void setCategory(String value) {
+        category = value;
+    }
+
+    public void setStatus(String value) {
+        status = value;
+    }
+
+    public void setRequestCode(String value) {
+        requestCode = value;
+    }
+
+    public void setInitialAction(String value) {
+        initialAction = value;
+    }
 }

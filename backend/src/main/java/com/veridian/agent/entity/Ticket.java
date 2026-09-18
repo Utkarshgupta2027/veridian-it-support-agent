@@ -50,16 +50,51 @@ public class Ticket {
         if (createdAt == null) createdAt = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
-    public SupportRequest getRequest() { return request; }
-    public String getStatus() { return status; }
-    public String getDecision() { return decision; }
-    public String getReferenceCode() { return referenceCode; }
-    public String getIssueSummary() { return issueSummary; }
-    public String getPriority() { return priority; }
-    public String getAssignedTo() { return assignedTo; }
-    public String getResolution() { return resolution; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setReferenceCode(String value) { referenceCode = value; }
-    public void setIssueSummary(String value) { issueSummary = value; }
+    public Long getId() {
+        return id;
+    }
+
+    public SupportRequest getRequest() {
+        return request;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getDecision() {
+        return decision;
+    }
+
+    public String getReferenceCode() {
+        return referenceCode;
+    }
+
+    public String getIssueSummary() {
+        return issueSummary;
+    }
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public String getAssignedTo() {
+        return assignedTo;
+    }
+
+    public String getResolution() {
+        return resolution;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setReferenceCode(String value) {
+        referenceCode = value;
+    }
+
+    public void setIssueSummary(String value) {
+        issueSummary = value;
+    }
 }

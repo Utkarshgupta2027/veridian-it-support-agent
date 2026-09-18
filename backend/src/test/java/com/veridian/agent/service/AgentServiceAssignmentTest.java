@@ -2,9 +2,9 @@ package com.veridian.agent.service;
 
 import com.veridian.agent.dto.AgentRequest;
 import com.veridian.agent.dto.AgentResponse;
+import com.veridian.agent.entity.KnowledgeBase;
 import com.veridian.agent.entity.SupportRequest;
 import com.veridian.agent.entity.Ticket;
-import com.veridian.agent.entity.KnowledgeBase;
 import com.veridian.agent.repository.AuditLogRepository;
 import com.veridian.agent.repository.SupportRequestRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,55 +20,94 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AgentServiceAssignmentTest {
-    @Mock SupportRequestRepository requests;
-    @Mock KnowledgeService knowledge;
-    @Mock TicketService tickets;
-    @Mock AuditService audit;
-    @Mock LlmService llm;
-    @Mock AuditLogRepository audits;
-    private AgentService agent;
+    @Mock
+    private SupportRequestRepository requestRepository;
+
+    @Mock
+    private KnowledgeService knowledgeService;
+
+    @Mock
+    private TicketService ticketService;
+
+    @Mock
+    private AuditService auditService;
+
+    @Mock
+    private LlmService llmService;
+
+    @Mock
+    private AuditLogRepository auditLogRepository;
+
+    private AgentService agentService;
 
     @BeforeEach
     void setUp() {
-        agent = new AgentService(requests, knowledge, tickets, audit, llm, audits);
-        when(requests.save(any(SupportRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        lenient().when(knowledge.search(anyString())).thenReturn(List.of());
-        lenient().when(llm.decide(anyString(), anyString())).thenReturn(Optional.empty());
-        when(audits.findByRequestIdOrderByTimestampAsc(any())).thenReturn(List.of());
-        when(tickets.findRelevantHistory(anyString())).thenReturn("");
-        lenient().when(tickets.create(any(), anyString(), anyString(), anyString(), anyString())).thenReturn(new Ticket());
+        agentService = new AgentService(
+            requestRepository,
+            knowledgeService,
+            ticketService,
+            auditService,
+            llmService,
+            auditLogRepository
+        );
+        when(requestRepository.save(any(SupportRequest.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(knowledgeService.search(anyString())).thenReturn(List.of());
+        lenient().when(llmService.decide(anyString(), anyString())).thenReturn(Optional.empty());
+        when(auditLogRepository.findByRequestIdOrderByTimestampAsc(any())).thenReturn(List.of());
+        when(ticketService.findRelevantHistory(anyString())).thenReturn("");
+        lenient().when(ticketService.create(any(), anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(new Ticket());
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("assignmentRequests")
-    void handlesAllAssignmentRequests(String id, String message, String decision, String source, String department) {
-        AgentResponse response = agent.handle(new AgentRequest("Test Employee", "test.employee@veridian-corp.example", message));
+    void handlesAllAssignmentRequests(
+        String requestId,
+        String message,
+        String expectedDecision,
+        String expectedSource,
+        String expectedDepartment
+    ) {
+        AgentResponse response = handle(message);
 
-        assertEquals(decision, response.decision(), id);
-        assertTrue(response.source().contains(source), id + " source");
-        assertEquals(department, response.assignedTo(), id + " department");
-        assertNotNull(response.nextAction(), id + " next action");
+        assertEquals(expectedDecision, response.decision(), requestId);
+        assertTrue(response.source().contains(expectedSource), requestId + " source");
+        assertEquals(expectedDepartment, response.assignedTo(), requestId + " department");
+        assertNotNull(response.nextAction(), requestId + " next action");
     }
 
     @Test
     void guestWifiDoesNotCreateTicket() {
-        AgentResponse response = agent.handle(new AgentRequest("Vikram Chawla", "vikram.chawla@veridian-corp.example", "Can I get Wi-Fi access for a guest visiting our office tomorrow?"));
+        AgentResponse response = handle(
+            "Can I get Wi-Fi access for a guest visiting our office tomorrow?"
+        );
 
         assertEquals("RESOLVE", response.decision());
         assertNull(response.ticketId());
         assertEquals("NO_TICKET_REQUIRED", response.ticketStatus());
-        verify(tickets, never()).create(any(), anyString(), anyString(), anyString(), anyString());
+        verify(ticketService, never()).create(any(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
     void phishingNeverEncouragesForwarding() {
-        AgentResponse response = agent.handle(new AgentRequest("Ananya Reddy", "ananya.reddy@veridian-corp.example", "I think I got a phishing email asking for my login - forwarding it to a few teammates to check."));
+        AgentResponse response = handle(
+            "I think I got a phishing email asking for my login - forwarding it to a few teammates to check."
+        );
 
         assertEquals("ESCALATE", response.decision());
         assertEquals("Security", response.assignedTo());
@@ -78,18 +117,22 @@ class AgentServiceAssignmentTest {
 
     @Test
     void ambiguousRequestAsksForInformation() {
-        AgentResponse response = agent.handle(new AgentRequest("Rahul Menon", "rahul.menon@veridian-corp.example", "Hey can you help, it's not working."));
+        AgentResponse response = handle("Hey can you help, it's not working.");
 
         assertEquals("FOLLOW_UP", response.decision());
         assertEquals("NONE", response.source());
-        assertTrue(response.nextAction().toLowerCase().contains("service") || response.nextAction().toLowerCase().contains("device"));
+        assertTrue(
+            response.nextAction().toLowerCase().contains("service")
+                || response.nextAction().toLowerCase().contains("device")
+        );
     }
 
     @Test
     void historyIsReturnedForRelevantRequest() {
-        when(tickets.findRelevantHistory(anyString())).thenReturn("TK-1042: VPN credential expired - Resolved (closed)");
+        when(ticketService.findRelevantHistory(anyString()))
+            .thenReturn("TK-1042: VPN credential expired - Resolved (closed)");
 
-        AgentResponse response = agent.handle(new AgentRequest("Sanjay Oberoi", "sanjay.oberoi@veridian-corp.example", "My VPN credentials expired."));
+        AgentResponse response = handle("My VPN credentials expired.");
 
         assertEquals("TK-1042: VPN credential expired - Resolved (closed)", response.historyContext());
         assertEquals("RESOLVE", response.decision());
@@ -97,10 +140,21 @@ class AgentServiceAssignmentTest {
 
     @Test
     void rejectsHallucinatedLlmApprovalAndDepartment() {
-        when(knowledge.search(anyString())).thenReturn(List.of(new KnowledgeBase("KB-01", "Password Reset", "Employees can reset their own password.")));
-        when(llm.decide(anyString(), anyString())).thenReturn(Optional.of(new LlmService.Decision("Unknown", "RESOLVE", "KB-01", "Access approved by the Root Admin team.", "HIGH", "Root Admin")));
+        when(knowledgeService.search(anyString())).thenReturn(List.of(
+            new KnowledgeBase("KB-01", "Password Reset", "Employees can reset their own password.")
+        ));
+        when(llmService.decide(anyString(), anyString())).thenReturn(Optional.of(
+            new LlmService.Decision(
+                "Unknown",
+                "RESOLVE",
+                "KB-01",
+                "Access approved by the Root Admin team.",
+                "HIGH",
+                "Root Admin"
+            )
+        ));
 
-        AgentResponse response = agent.handle(new AgentRequest("Test Employee", "test.employee@veridian-corp.example", "Please process this unfamiliar request."));
+        AgentResponse response = handle("Please process this unfamiliar request.");
 
         assertEquals("FOLLOW_UP", response.decision());
         assertEquals("IT", response.assignedTo());
@@ -109,12 +163,25 @@ class AgentServiceAssignmentTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("allPolicies")
-    void handlesEveryKnowledgeBasePolicy(String policy, String message, String decision, String department) {
-        AgentResponse response = agent.handle(new AgentRequest("Policy Tester", "policy.tester@veridian-corp.example", message));
+    void handlesEveryKnowledgeBasePolicy(
+        String policy,
+        String message,
+        String expectedDecision,
+        String expectedDepartment
+    ) {
+        AgentResponse response = handle(message);
 
-        assertEquals(decision, response.decision(), policy + " decision");
+        assertEquals(expectedDecision, response.decision(), policy + " decision");
         assertTrue(response.source().contains(policy), policy + " source");
-        assertEquals(department, response.assignedTo(), policy + " department");
+        assertEquals(expectedDepartment, response.assignedTo(), policy + " department");
+    }
+
+    private AgentResponse handle(String message) {
+        return agentService.handle(new AgentRequest(
+            "Test Employee",
+            "test.employee@veridian-corp.example",
+            message
+        ));
     }
 
     private static Stream<Arguments> assignmentRequests() {
