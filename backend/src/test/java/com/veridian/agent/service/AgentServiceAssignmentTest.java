@@ -70,7 +70,7 @@ class AgentServiceAssignmentTest {
         lenient().when(llmService.decide(anyString(), anyString())).thenReturn(Optional.empty());
         when(auditLogRepository.findByRequestIdOrderByTimestampAsc(any())).thenReturn(List.of());
         when(ticketService.findRelevantHistory(anyString())).thenReturn("");
-        lenient().when(ticketService.create(any(), anyString(), anyString(), anyString(), anyString()))
+        lenient().when(ticketService.create(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
             .thenReturn(new Ticket());
     }
 
@@ -159,6 +159,37 @@ class AgentServiceAssignmentTest {
         assertEquals("FOLLOW_UP", response.decision());
         assertEquals("IT", response.assignedTo());
         assertFalse(response.response().toLowerCase().contains("approved"));
+    }
+
+    @Test
+    void asksWhetherVpnEmployeeIsFullTimeOrContractor() {
+        AgentResponse response = handle("I need VPN access.");
+
+        assertEquals("FOLLOW_UP", response.decision());
+        assertEquals("KB-02", response.source());
+        assertTrue(response.nextAction().toLowerCase().contains("full-time"));
+        assertTrue(response.nextAction().toLowerCase().contains("contractor"));
+    }
+
+    @Test
+    void asksForSoftwareNameAndCatalogStatus() {
+        AgentResponse response = handle("I need software installed.");
+
+        assertEquals("FOLLOW_UP", response.decision());
+        assertEquals("KB-04", response.source());
+        assertTrue(response.nextAction().toLowerCase().contains("software name"));
+        assertTrue(response.nextAction().toLowerCase().contains("catalog"));
+    }
+
+    @Test
+    void asksForLaptopAgeFailureAndTiming() {
+        AgentResponse response = handle("I need a new laptop.");
+
+        assertEquals("FOLLOW_UP", response.decision());
+        assertEquals("KB-03 / Asset Management Policy", response.source());
+        assertTrue(response.nextAction().toLowerCase().contains("age"));
+        assertTrue(response.nextAction().toLowerCase().contains("hardware failure"));
+        assertTrue(response.nextAction().toLowerCase().contains("timing"));
     }
 
     @ParameterizedTest(name = "{0}")

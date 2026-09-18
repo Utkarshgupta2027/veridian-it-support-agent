@@ -27,6 +27,11 @@ public class Ticket {
     private String decision;
     private String priority;
     private String assignedTo;
+    private String employeeName;
+    private String employeeEmail;
+    private String category;
+    private String knowledgeSource;
+    private String nextAction;
     private String referenceCode;
     private String issueSummary;
     @Column(columnDefinition = "TEXT")
@@ -43,6 +48,28 @@ public class Ticket {
         this.assignedTo = assignedTo;
         this.resolution = resolution;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public Ticket(
+        SupportRequest request,
+        String status,
+        String decision,
+        String priority,
+        String assignedTo,
+        String resolution,
+        String category,
+        String knowledgeSource,
+        String nextAction
+    ) {
+        this(request, status, decision, priority, assignedTo, resolution);
+        this.category = category;
+        this.knowledgeSource = knowledgeSource;
+        this.nextAction = nextAction;
+        if (request != null) {
+            this.employeeName = request.getEmployeeName();
+            this.employeeEmail = request.getEmployeeEmail();
+            this.issueSummary = request.getRequestText();
+        }
     }
 
     @PrePersist
@@ -80,6 +107,26 @@ public class Ticket {
 
     public String getAssignedTo() {
         return assignedTo;
+    }
+
+    public String getEmployeeName() {
+        return employeeName;
+    }
+
+    public String getEmployeeEmail() {
+        return employeeEmail;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getKnowledgeSource() {
+        return knowledgeSource;
+    }
+
+    public String getNextAction() {
+        return nextAction;
     }
 
     public String getResolution() {

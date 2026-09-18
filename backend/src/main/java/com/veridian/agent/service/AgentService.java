@@ -153,8 +153,16 @@ public class AgentService {
         requestRepository.save(request);
         auditService.log(
             request,
+            "INTENT_DETECTED",
+            decision.category() + " | source=" + decision.source()
+        );
+        auditService.log(
+            request,
             "DECISION_MADE",
-            decision.decision() + " | " + decision.category() + " | " + decision.source()
+            decision.decision() + " | " + decision.category()
+                + " | source=" + decision.source()
+                + " | department=" + decision.assignedTo()
+                + " | nextAction=" + decision.nextAction()
         );
     }
 
@@ -167,9 +175,20 @@ public class AgentService {
             decision.decision(),
             decision.priority(),
             decision.assignedTo(),
-            decision.response()
+            decision.response(),
+            decision.category(),
+            decision.source(),
+            decision.nextAction()
         );
-        auditService.log(request, "TICKET_CREATED", "Ticket TK-" + ticket.getId() + " created.");
+        auditService.log(
+            request,
+            "TICKET_CREATED",
+            "Ticket TK-" + ticket.getId() + " created. "
+                + "Employee=" + request.getEmployeeName()
+                + "; source=" + decision.source()
+                + "; department=" + decision.assignedTo()
+                + "; nextAction=" + decision.nextAction()
+        );
         return ticket;
     }
 
@@ -263,11 +282,19 @@ public class AgentService {
                     "Renew the expired VPN credentials according to the VPN renewal process.", true, history
                 );
             }
+            if (containsAny(message, "full-time", "full time", "employee")) {
+                return decision(
+                    "VPN Access", "RESOLVE", "KB-02",
+                    "VPN access is granted automatically to full-time employees. Contractors require manager approval through the access request form.",
+                    "LOW", "IT",
+                    "Use the standard VPN access process; submit the manager approval form if you are a contractor.", true, history
+                );
+            }
             return decision(
-                "VPN Access", "RESOLVE", "KB-02",
-                "VPN access is granted automatically to full-time employees. Contractors require manager approval through the access request form.",
-                "LOW", "IT",
-                "Use the standard VPN access process; submit the manager approval form if you are a contractor.", true, history
+                "VPN Access", "FOLLOW_UP", "KB-02",
+                "VPN access is automatic for full-time employees, while contractors require manager approval through the access request form.",
+                "MEDIUM", "IT",
+                "Confirm whether you are a full-time employee or a contractor before access is processed.", true, history
             );
         }
         if (containsAny(message, "not in the software catalog", "non-catalog", "not in catalog", "browser extension", "productivity tracking")) {
@@ -285,6 +312,14 @@ public class AgentService {
                 "Standard software listed in the approved catalog can be self-installed. No Security review is required for catalog software.",
                 "LOW", "IT",
                 "Install the software from the approved catalog.", true, history
+            );
+        }
+        if (containsAny(message, "software", "application", "app", "install")) {
+            return decision(
+                "Software Installation", "FOLLOW_UP", "KB-04",
+                "The software name and whether it is in the approved catalog are needed before installation guidance can be given.",
+                "MEDIUM", "IT",
+                "Provide the software name and confirm whether it is listed in the approved catalog.", true, history
             );
         }
         if (containsAny(message, "printer", "paper jam", "print spooler")) {
@@ -342,7 +377,7 @@ public class AgentService {
                 "Laptop Hardware Issue", "FOLLOW_UP", "KB-03 / Asset Management Policy",
                 "A hardware issue does not automatically approve replacement. IT must verify the failure; replacement eligibility, the 2-week request lead time, and the 4-year refresh policy then need review.",
                 "MEDIUM", "IT + Finance & Assets",
-                "Provide the device asset details and arrange IT hardware verification before any replacement decision.", true, history
+                "Provide the laptop age or issue date, describe any verified hardware failure, and share the intended replacement timing.", true, history
             );
         }
         return null;

@@ -90,4 +90,8 @@ public class SupportRequest {
     public void setInitialAction(String value) {
         initialAction = value;
     }
+
+    public void setCreatedAt(LocalDateTime value) {
+        createdAt = value;
+    }
 }

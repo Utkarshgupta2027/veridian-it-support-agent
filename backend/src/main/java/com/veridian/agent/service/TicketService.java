@@ -18,10 +18,35 @@ public class TicketService {
         String decision,
         String priority,
         String assignedTo,
-        String resolution
+        String resolution,
+        String category,
+        String knowledgeSource,
+        String nextAction
     ) {
         String status = statusForDecision(decision);
-        return repository.save(new Ticket(request, status, decision, priority, assignedTo, resolution));
+        return repository.save(new Ticket(
+            request, status, decision, priority, assignedTo, resolution,
+            category, knowledgeSource, nextAction
+        ));
+    }
+
+    public Ticket create(
+        SupportRequest request,
+        String decision,
+        String priority,
+        String assignedTo,
+        String resolution
+    ) {
+        return create(
+            request,
+            decision,
+            priority,
+            assignedTo,
+            resolution,
+            request.getCategory(),
+            "NONE",
+            "Review the request and proceed with the assigned team."
+        );
     }
 
     public String findRelevantHistory(String message) {

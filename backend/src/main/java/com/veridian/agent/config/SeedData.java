@@ -10,7 +10,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 public class SeedData {
@@ -139,7 +141,10 @@ public class SeedData {
                 "HISTORY",
                 "MEDIUM",
                 ticketOwner(item.issue()),
-                item.status()
+                item.status(),
+                "Historical ticket",
+                "Existing ticket history",
+                "Historical context only; do not treat this closed record as a new action."
             );
             ticket.setReferenceCode(item.ticketCode());
             ticket.setIssueSummary(item.issue());
@@ -148,6 +153,23 @@ public class SeedData {
     }
 
     private void seedAssignmentRequests(SupportRequestRepository repository) {
+        Map<String, LocalDate> openedDates = Map.ofEntries(
+            Map.entry("REQ-01", LocalDate.of(2026, 9, 21)),
+            Map.entry("REQ-02", LocalDate.of(2026, 9, 21)),
+            Map.entry("REQ-03", LocalDate.of(2026, 9, 21)),
+            Map.entry("REQ-04", LocalDate.of(2026, 9, 22)),
+            Map.entry("REQ-05", LocalDate.of(2026, 9, 22)),
+            Map.entry("REQ-06", LocalDate.of(2026, 9, 22)),
+            Map.entry("REQ-07", LocalDate.of(2026, 9, 23)),
+            Map.entry("REQ-08", LocalDate.of(2026, 9, 23)),
+            Map.entry("REQ-09", LocalDate.of(2026, 9, 23)),
+            Map.entry("REQ-10", LocalDate.of(2026, 9, 23)),
+            Map.entry("REQ-11", LocalDate.of(2026, 9, 24)),
+            Map.entry("REQ-12", LocalDate.of(2026, 9, 24)),
+            Map.entry("REQ-13", LocalDate.of(2026, 9, 24)),
+            Map.entry("REQ-14", LocalDate.of(2026, 9, 25)),
+            Map.entry("REQ-15", LocalDate.of(2026, 9, 25))
+        );
         List<AssignmentSeed> requests = List.of(
             new AssignmentSeed("REQ-01", "Aditi Sharma", "aditi.sharma@veridian-corp.example", "My laptop won't turn on at all, it's completely dead, had it about 3.5 years now.", "Not started"),
             new AssignmentSeed("REQ-02", "Vikram Chawla", "vikram.chawla@veridian-corp.example", "Can I get Wi-Fi access for a guest visiting our office tomorrow?", "Not started"),
@@ -174,6 +196,7 @@ public class SeedData {
             SupportRequest request = new SupportRequest(
                 item.employeeName(), item.employeeEmail(), item.message()
             );
+            request.setCreatedAt(openedDates.get(item.requestCode()).atStartOfDay());
             request.setRequestCode(item.requestCode());
             request.setInitialAction(item.initialAction());
             repository.save(request);
