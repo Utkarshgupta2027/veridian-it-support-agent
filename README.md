@@ -28,6 +28,8 @@ DB_PASSWORD=your-local-password
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
+The URL and username have safe local defaults. `DB_PASSWORD` must be supplied when your MySQL user requires a password; it is intentionally never stored in the repository.
+
 Optional LLM variables:
 
 ```text
@@ -52,6 +54,15 @@ Start the backend:
 cd backend
 mvn spring-boot:run
 ```
+
+For a local demo without MySQL credentials, use the file-backed H2 development profile:
+
+```bat
+cd backend
+mvn spring-boot:run "-Dspring-boot.run.profiles=dev"
+```
+
+The `dev` profile stores its local database under `backend/data/`, which is ignored by Git. Use the default profile with `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` when running against MySQL.
 
 Start the frontend in another terminal:
 
