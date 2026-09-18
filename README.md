@@ -17,7 +17,7 @@ The backend seeds KB-01 through KB-10, the Asset Management Policy, REQ-01 throu
 
 ## Configuration
 
-Copy `backend/.env.example` into your environment and provide the database values. No secrets are committed to the repository.
+Set the variables from `backend/.env.example` in your shell, IDE launch configuration, or local environment file. Spring Boot does not load `.env` files automatically. No secrets are committed to the repository.
 
 Required database variables:
 
