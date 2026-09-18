@@ -9,4 +9,5 @@ public class KnowledgeBase {
  public KnowledgeBase() {}
  public KnowledgeBase(String p,String t,String c){policyId=p;title=t;content=c;}
  public Long getId(){return id;} public String getPolicyId(){return policyId;} public String getTitle(){return title;} public String getContent(){return content;}
+ public void setTitle(String value){title=value;} public void setContent(String value){content=value;}
 }

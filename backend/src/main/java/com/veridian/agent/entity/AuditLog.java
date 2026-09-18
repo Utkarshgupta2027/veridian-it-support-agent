@@ -1,9 +1,10 @@
 package com.veridian.agent.entity;
 import jakarta.persistence.*; import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 @Entity @Table(name="audit_logs")
 public class AuditLog {
  @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
- @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="request_id",nullable=false) private SupportRequest request;
+ @JsonIgnore @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="request_id",nullable=false) private SupportRequest request;
  private String action;
  @Column(columnDefinition="TEXT") private String details;
  private LocalDateTime timestamp;

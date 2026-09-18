@@ -1,71 +1,100 @@
-# Veridian IT Support Agent — 6-Hour MVP
+# Veridian IT Support - Internal Service Agent
 
-Stack: React + Vite → Spring Boot → Agent Service → MySQL + LLM API.
+An internal IT helpdesk agent for Veridian Corp. The application uses deterministic, policy-grounded rules for the assignment scenarios and an optional LLM fallback only when the request cannot be resolved by a known rule.
 
-## Included
-- Employee request form
-- Agent REST API
-- Grounded knowledge retrieval
-- Structured LLM integration (optional API key)
-- Safe deterministic rules for the explicitly documented scenarios
-- RESOLVE / FOLLOW_UP / ESCALATE / ROUTE_TO_OTHER_DEPARTMENT
-- Ticket creation
-- Audit trail
-- Source display
-- Request/ticket/audit APIs
-- No authentication
-- Demo UI
+## Workflow
 
-## Important
-The supplied assignment says to use only the supplied Veridian source material and not invent policies. This MVP therefore includes only policy facts explicitly present in the supplied architecture/analysis:
-KB-01 password lockout, KB-02 VPN credential renewal, KB-09 phishing/security escalation, and Finance ownership of expense-system access.
+`Employee Request -> Knowledge Retrieval -> Policy Matching -> Agent Decision -> Ticket Creation -> Audit Logging -> Response`
 
-Before final submission, load the complete official KB-01..KB-10 + Asset Management Policy data pack. Do not invent missing policy text.
+The backend seeds KB-01 through KB-10, the Asset Management Policy, REQ-01 through REQ-15, and the existing TK-1042 through TK-1051 history queue. Historical tickets are surfaced as context and do not replace a new decision.
+
+## Requirements
+
+- Java 21
+- Maven
+- Node.js 18+
+- MySQL 8+
+
+## Configuration
+
+Copy `backend/.env.example` into your environment and provide the database values. No secrets are committed to the repository.
+
+Required database variables:
+
+```text
+DB_URL=jdbc:mysql://localhost:3306/veridian_agent?createDatabaseIfNotExist=true&serverTimezone=UTC
+DB_USERNAME=root
+DB_PASSWORD=your-local-password
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+Optional LLM variables:
+
+```text
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+The app works without an LLM key. LLM requests are policy-grounded, JSON-constrained, and time-limited; failures fall back to a safe follow-up response.
 
 ## Run
-1. Create MySQL database:
+
+Create the database if it does not already exist:
+
 ```sql
 CREATE DATABASE veridian_agent;
 ```
 
-2. Configure:
-`backend/src/main/resources/application.properties`
+Start the backend:
 
-3. Backend:
 ```bat
 cd backend
 mvn spring-boot:run
 ```
 
-4. Frontend:
+Start the frontend in another terminal:
+
 ```bat
 cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173
+Open http://localhost:5173.
 
-## Optional LLM
-Set:
-```text
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_BASE_URL=https://api.openai.com/v1
+## API
+
+- `POST /api/agent/chat`
+- `GET /api/requests`
+- `GET /api/tickets`
+- `GET /api/tickets/{id}`
+- `GET /api/audit/{requestId}`
+
+Invalid request payloads return HTTP 400 with a safe validation message. Unexpected backend failures return a generic HTTP 500 response without stack traces or implementation details.
+
+## Tests
+
+Run all backend tests:
+
+```bat
+cd backend
+mvn clean test
 ```
 
-Without a key the app still works using safe deterministic/follow-up behavior.
+The assignment test suite covers all 15 employee requests plus guest Wi-Fi no-ticket behavior, phishing safety, ambiguous requests, and historical ticket context. Build the frontend with:
 
-## APIs
-POST /api/agent/chat
-GET /api/requests
-GET /api/tickets
-GET /api/tickets/{id}
-GET /api/audit/{requestId}
+```bat
+cd frontend
+npm run build
+```
 
-## Demo
-- Password lockout → RESOLVE → KB-01
-- VPN credentials expired → RESOLVE → KB-02
-- Phishing → ESCALATE → KB-09 → Security
-- Expense access → ROUTE_TO_OTHER_DEPARTMENT → Finance
-- Vague laptop issue → FOLLOW_UP
+## Policy behavior highlights
+
+- Guest Wi-Fi is resolved without creating an IT ticket.
+- Security incidents escalate to Security and explicitly prohibit forwarding suspicious email.
+- Contractor VPN access routes for manager approval.
+- Non-catalog software and browser extensions route to Security review.
+- Hardware replacement never receives an unsupported automatic approval; IT verification and Finance & Assets review are required where the two refresh policies overlap.
+- Expense access is owned by Finance; IT only handles technical login issues after an account exists.
+- Ambiguous requests ask for the missing service, device, error, and expected behavior.
