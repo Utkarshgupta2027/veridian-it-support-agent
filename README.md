@@ -48,21 +48,23 @@ Create the database if it does not already exist:
 CREATE DATABASE veridian_agent;
 ```
 
-Start the backend:
+Start the backend with the default local H2 database:
 
 ```bat
 cd backend
 mvn spring-boot:run
 ```
 
-For a local demo without MySQL credentials, use the file-backed H2 development profile:
+The default profile stores its local database under `backend/data/`, which is ignored by Git. For MySQL, set `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` before running the same command.
+
+You can also use the explicit H2 development profile:
 
 ```bat
 cd backend
 mvn spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 
-The `dev` profile stores its local database under `backend/data/`, which is ignored by Git. Use the default profile with `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` when running against MySQL.
+Use the MySQL variables when running against a shared or production database.
 
 Start the frontend in another terminal:
 
