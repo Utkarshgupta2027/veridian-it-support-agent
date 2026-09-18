@@ -37,7 +37,7 @@ flowchart LR
     BL[Business Logic<br/>Agent Service]
     AG[AI Agent<br/>Decision Engine]
     TOOLS[Tools / Services<br/>Knowledge Retrieval<br/>Ticket Creation<br/>Audit Logging]
-    DB[(MySQL / H2<br/>Knowledge Base<br/>Requests<br/>Tickets<br/>Audit Logs)]
+    DB[(PostgreSQL / H2<br/>Knowledge Base<br/>Requests<br/>Tickets<br/>Audit Logs)]
     LLM[Optional External LLM<br/>OpenAI-Compatible API]
 
     U -->|IT Support Request| FE
@@ -253,7 +253,7 @@ result in a follow-up request for missing information such as:
 | Frontend | React, Vite |
 | Backend | Java 21, Spring Boot |
 | API | REST / JSON |
-| Database | MySQL 8+ / H2 Development DB |
+| Database | PostgreSQL 16+ / H2 Development DB |
 | ORM | Spring Data JPA |
 | AI | Optional OpenAI-compatible LLM |
 | Build | Maven |
@@ -267,7 +267,7 @@ result in a follow-up request for missing information such as:
 - Java 21
 - Maven
 - Node.js 18+
-- MySQL 8+
+- PostgreSQL 16+
 
 ---
 
@@ -282,8 +282,8 @@ No secrets are committed to the repository.
 ### Required Database Variables
 
 ```env
-DB_URL=jdbc:mysql://localhost:3306/veridian_agent?createDatabaseIfNotExist=true&serverTimezone=UTC
-DB_USERNAME=root
+DB_URL=jdbc:postgresql://localhost:5432/veridian_agent
+DB_USERNAME=veridian_user
 DB_PASSWORD=your-local-password
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
@@ -308,7 +308,7 @@ Create the database if it does not already exist:
 CREATE DATABASE veridian_agent;
 ```
 
-For local MySQL:
+For local PostgreSQL:
 
 ```sql
 USE veridian_agent;
@@ -332,7 +332,7 @@ For the explicit H2 development profile:
 mvn spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 
-For MySQL, configure `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` before running the same command.
+For PostgreSQL, configure `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` before running the same command.
 
 ---
 
@@ -357,25 +357,24 @@ http://localhost:5173
 The production image builds the React client and serves it from the Spring Boot
 application, so the UI and API are available from one address.
 
-1. Create a root `.env` file with strong database passwords (this file is not
-   committed):
+1. Create a root `.env` file with the PostgreSQL connection values (this file
+   is not committed):
 
    ```env
-   MYSQL_PASSWORD=replace-with-a-strong-password
-   MYSQL_ROOT_PASSWORD=replace-with-a-different-strong-password
+   DB_URL=jdbc:postgresql://your-postgres-host:5432/veridian_agent
+   DB_USERNAME=your-postgres-user
+   DB_PASSWORD=replace-with-your-password
    # Optional: enable the LLM fallback
    # OPENAI_API_KEY=...
    ```
 
-2. Build and start the application with its MySQL database:
+2. Build and start the application:
 
    ```bash
    docker compose up --build -d
    ```
 
-3. Open `http://localhost:8080`. To stop the stack while retaining database
-   data, run `docker compose down`. Add `-v` only when intentionally removing
-   the database volume.
+3. Open `http://localhost:8080`. Stop the application with `docker compose down`.
 
 To build only the deployable application image:
 
@@ -384,8 +383,14 @@ docker build -t veridian-it-agent:latest .
 ```
 
 When running that image outside Compose, provide `DB_URL`, `DB_USERNAME`, and
-`DB_PASSWORD` for an accessible MySQL instance. The container listens on port
+`DB_PASSWORD` for an accessible PostgreSQL instance. The container listens on port
 `8080`.
+
+For Render, deploy the repository as a Docker web service (or use
+`render.yaml`) and add the three database environment variables in the Render
+dashboard. Use the supplied **internal** PostgreSQL hostname when the app also
+runs on Render; use the external hostname only from outside Render. `DB_URL`
+must use JDBC syntax: `jdbc:postgresql://<host>:5432/veridian_agent`.
 
 ---
 
