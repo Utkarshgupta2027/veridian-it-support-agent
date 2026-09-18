@@ -352,6 +352,43 @@ http://localhost:5173
 
 ---
 
+## Docker Deployment
+
+The production image builds the React client and serves it from the Spring Boot
+application, so the UI and API are available from one address.
+
+1. Create a root `.env` file with strong database passwords (this file is not
+   committed):
+
+   ```env
+   MYSQL_PASSWORD=replace-with-a-strong-password
+   MYSQL_ROOT_PASSWORD=replace-with-a-different-strong-password
+   # Optional: enable the LLM fallback
+   # OPENAI_API_KEY=...
+   ```
+
+2. Build and start the application with its MySQL database:
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+3. Open `http://localhost:8080`. To stop the stack while retaining database
+   data, run `docker compose down`. Add `-v` only when intentionally removing
+   the database volume.
+
+To build only the deployable application image:
+
+```bash
+docker build -t veridian-it-agent:latest .
+```
+
+When running that image outside Compose, provide `DB_URL`, `DB_USERNAME`, and
+`DB_PASSWORD` for an accessible MySQL instance. The container listens on port
+`8080`.
+
+---
+
 ## API Endpoints
 
 | Method | Endpoint | Purpose |

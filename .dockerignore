@@ -1,0 +1,12 @@
+.git
+.github
+.vscode
+**/node_modules
+**/target
+**/dist
+**/data
+**/.env
+**/.env.*
+!backend/.env.example
+README.md
+docs

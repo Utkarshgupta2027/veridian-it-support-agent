@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const API = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const DEMO_REQUESTS = [
   ['Password lockout', 'I tried my password 6 times and now my account is locked.'],
